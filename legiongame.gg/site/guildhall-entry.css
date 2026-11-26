@@ -1,0 +1,28 @@
+.gh-entry {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: 6px;
+	min-height: 34px;
+	padding: 0 12px;
+	border: 2px solid #ffcf4a;
+	border-radius: 999px;
+	background: rgba(15, 12, 34, 0.78);
+	color: #fff;
+	font: 700 13px / 1 var(--tx, system-ui);
+	cursor: pointer;
+	pointer-events: auto;
+}
+.gh-entry:hover,
+.gh-entry:focus-visible {
+	background: rgba(90, 52, 88, 0.92);
+	outline: none;
+}
+.gh-entry span {
+	font-size: 15px;
+}
+@media (max-width: 560px) {
+	.gh-entry b {
+		font-size: 12px;
+	}
+}

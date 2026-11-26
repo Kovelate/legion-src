@@ -1,0 +1,95 @@
+.cy-tent {
+	display: block;
+}
+.cy-trytop {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.cy-tryfig {
+	display: none;
+	flex: none;
+	width: 76px;
+}
+.cy-tryfig svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+.cy-mirror {
+	display: grid;
+	justify-items: center;
+	gap: 8px;
+	align-content: start;
+	padding: 10px;
+	border-radius: 14px;
+	background: radial-gradient(
+		ellipse at 50% 70%,
+		#ffe2a0 0%,
+		#8b4fd0 55%,
+		#1c1236 100%
+	);
+}
+.cy-fig {
+	width: 150px;
+}
+.cy-opts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 8px 0 10px;
+	max-height: 220px;
+	overflow: auto;
+}
+.cy-opt {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	border: 2px solid var(--gw-line);
+	background: var(--gw-ghost);
+	color: var(--gw-on-ghost);
+	font: 600 13px / 1 var(--tx, system-ui);
+	cursor: pointer;
+}
+.cy-opt i {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid var(--gw-line);
+}
+.cy-opt small {
+	font-size: 11px;
+	color: var(--gw-on-ghost);
+}
+.cy-opt.on {
+	background: var(--gw-sel);
+	color: var(--gw-on-sel);
+}
+.cy-opt.on small {
+	color: var(--gw-on-sel);
+}
+.cy-opt:focus-visible {
+	outline: 3px solid var(--gw-focus);
+}
+@media (max-width: 720px) {
+	.cy-tent {
+		grid-template-columns: 1fr;
+	}
+	.cy-tryfig {
+		display: block;
+	}
+
+	.cy-room[data-b="tent"] .cy-rui {
+		height: 56vh;
+	}
+	.cy-mirror {
+		grid-template-columns: auto auto;
+		justify-content: center;
+		align-items: end;
+	}
+	.cy-fig {
+		width: 110px;
+	}
+}
