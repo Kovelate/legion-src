@@ -12888,9 +12888,35 @@
 	}
 
 	let pzEl = null;
+
 	const pzKey = (e) => {
-		if (!pzEl || e.ctrlKey || e.metaKey || /^F\d{1,2}$/.test(e.key)) return;
+		if (
+			!pzEl ||
+			e.ctrlKey ||
+			e.metaKey ||
+			/^F\d{1,2}$/.test(e.key) ||
+			pzChat(e.target)
+		)
+			return;
 		e.preventDefault();
+		e.stopImmediatePropagation();
+	};
+	const pzChat = (t) => !!(t && t.closest && t.closest(".cy-chat")),
+		PZ_EV = [
+			"pointerdown",
+			"pointerup",
+			"mousedown",
+			"mouseup",
+			"click",
+			"dblclick",
+			"contextmenu",
+			"touchstart",
+			"touchmove",
+			"wheel",
+		];
+	const pzStop = (e) => {
+		if (!pzEl || pzChat(e.target)) return;
+		if (e.cancelable) e.preventDefault();
 		e.stopImmediatePropagation();
 	};
 	function pauseShow(on) {
@@ -12901,6 +12927,7 @@
 			document.documentElement.classList.remove("lg-pz-on");
 			for (const t of ["keydown", "keypress", "keyup"])
 				window.removeEventListener(t, pzKey, true);
+			for (const t of PZ_EV) window.removeEventListener(t, pzStop, true);
 			return;
 		}
 		if (pzEl) return;
@@ -12911,32 +12938,19 @@
 		pzEl.setAttribute("aria-labelledby", "lg-pz-t");
 		pzEl.tabIndex = -1;
 		pzEl.innerHTML =
-			'<div class="lg-pz-w"><div class="lg-pz-ico" aria-hidden="true"></div><p class="lg-pz-t" id="lg-pz-t">Пауза игры, рестарт серверов</p><p class="lg-pz-n">Ничего не теряется, игра продолжится сама</p></div>';
-
-		for (const t of [
-			"pointerdown",
-			"mousedown",
-			"click",
-			"dblclick",
-			"contextmenu",
-			"touchstart",
-		])
-			pzEl.addEventListener(
-				t,
-				(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-				},
-				{ passive: false },
-			);
+			'<div class="lg-pz-w"><div class="lg-pz-ico" aria-hidden="true"></div><p class="lg-pz-t" id="lg-pz-t">Пауза игры, рестарт серверов</p><p class="lg-pz-n">Ничего не теряется, игра продолжится сама</p><p class="lg-pz-c">Чаты работают - можно писать</p></div>';
+		for (const t of PZ_EV)
+			window.addEventListener(t, pzStop, { capture: true, passive: false });
 		document.body.appendChild(pzEl);
 		document.documentElement.classList.add("lg-pz-on");
 		for (const t of ["keydown", "keypress", "keyup"])
 			window.addEventListener(t, pzKey, true);
 		try {
-			if (document.activeElement && document.activeElement !== document.body)
-				document.activeElement.blur();
-			pzEl.focus({ preventScroll: true });
+			if (!pzChat(document.activeElement)) {
+				if (document.activeElement && document.activeElement !== document.body)
+					document.activeElement.blur();
+				pzEl.focus({ preventScroll: true });
+			}
 		} catch (e) {
 			console.warn("[сайт] фокус на паузе", e);
 		}
@@ -13530,6 +13544,7 @@
 			);
 			if (window.LGChatOne && window.LGChatOne.resync)
 				window.LGChatOne.resync();
+			if (window.LGDm && window.LGDm.resync) window.LGDm.resync();
 		});
 		ES.onopen = () => {
 			smEs = !!q;

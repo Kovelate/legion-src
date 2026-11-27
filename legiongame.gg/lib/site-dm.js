@@ -96,6 +96,8 @@
 		S.names = new Map();
 		S.dmBan = null;
 		S.blk = new Set();
+		S.pat = null;
+		S.syncAt = 0;
 		if (!me) {
 			S.tabs = [];
 			S.active = null;
@@ -156,6 +158,7 @@
 		const l = nick(login),
 			i = S.tabs.indexOf(l);
 		if (i < 0) return;
+		if (S.pat) S.pat.set(l, Math.max(S.pat.get(l) || 0, lastAt(l)));
 		S.tabs.splice(i, 1);
 		S.un.delete(l);
 		S.conv.delete(l);
@@ -226,9 +229,10 @@
 		if (r.blocked) S.blk.add(l);
 		else if (r.blocked === false) S.blk.delete(l);
 		if (!S.conv.has(l)) S.conv.set(l, []);
-		add(l, r.list || [], !!older);
+		const n = add(l, r.list || [], !!older);
 		S.more.set(l, !!r.more);
 		if (S.active === l) render(!older);
+		return n;
 	}
 	async function send(text) {
 		const l = S.active,
@@ -277,6 +281,7 @@
 		if (!l) return;
 		if (!mine) S.names.set(l, String(m.fn || l));
 		if (!mine) S.shut = false;
+		if (S.pat) S.pat.set(l, Math.max(S.pat.get(l) || 0, +m.at || 0));
 		const isNew = !S.tabs.includes(l);
 		if (isNew) open(l, { bg: true });
 		const n = add(l, [m]);
@@ -284,6 +289,76 @@
 			S.un.set(l, (S.un.get(l) || 0) + 1);
 		render(S.active === l);
 		fire();
+	}
+
+	function lastAt(l) {
+		const L = S.conv.get(l);
+		return L && L.length ? +L[L.length - 1].at || 0 : 0;
+	}
+	async function resync() {
+		if (!S.ctx || !S.ctx.api || !S.me) return false;
+		const B = root.LGSiteUi && root.LGSiteUi.bg;
+		if (B && B.state && B.state() === "hidden") {
+			if (!S.bgOff && B.on)
+				S.bgOff = B.on((st) => {
+					if (st === "hidden") return;
+					const off = S.bgOff;
+					S.bgOff = null;
+					if (off) off();
+					resync();
+				});
+			return false;
+		}
+		if (S.syncing || Date.now() - (S.syncAt || 0) < 3000) return false;
+		S.syncAt = Date.now();
+		S.syncing = true;
+		try {
+			const me = S.me,
+				r = await S.ctx.api("/api/dm/peers");
+			if (!r || !r.ok || !Array.isArray(r.peers) || me !== S.me) return false;
+			const ban = r.dmBan ? { until: +r.dmBan.until || 0 } : null;
+			if (!!ban !== !!S.dmBan) S.dmBan = ban;
+			const first = !S.pat,
+				pat = S.pat || new Map(),
+				want = [];
+			for (const p of r.peers) {
+				const l = nick(p && p.login);
+				if (!l || l === S.me) continue;
+				const at = +p.at || 0,
+					mine = !!(p.last && p.last.mine),
+					was = pat.get(l) || 0;
+				pat.set(l, Math.max(was, at));
+				if (p.name && !S.names.has(l))
+					S.names.set(l, String(p.name).slice(0, 40));
+				if (S.tabs.includes(l)) {
+					if (S.conv.has(l) && at > lastAt(l)) want.push(l);
+					continue;
+				}
+				if (first || mine || at <= was || S.blk.has(l)) continue;
+				S.shut = false;
+				open(l, { bg: true });
+				S.un.set(l, (S.un.get(l) || 0) + 1);
+			}
+			S.pat = pat;
+			for (const l of want) {
+				const ids = new Set((S.conv.get(l) || []).map((m) => m.id));
+				if (!(await load(l))) continue;
+				const n = (S.conv.get(l) || []).filter(
+					(m) => !ids.has(m.id) && String(m.fl).toLowerCase() !== S.me,
+				).length;
+				if (n) {
+					S.shut = false;
+					if (!(S.active === l && visible()))
+						S.un.set(l, (S.un.get(l) || 0) + n);
+				}
+			}
+			place();
+			render();
+			fire();
+			return true;
+		} finally {
+			S.syncing = false;
+		}
 	}
 
 	const D = () => root.document;
@@ -672,6 +747,7 @@
 		close,
 		setActive,
 		onEvent,
+		resync,
 		send,
 		report,
 		load,
