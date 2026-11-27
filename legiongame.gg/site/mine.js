@@ -390,6 +390,11 @@
 		X = null,
 		C = "mine";
 
+	const LK_GAP_MS = 30000,
+		LK_MISS_MS = 5 * 60000;
+	const lkDue = () =>
+		!!S && S.lkWant.size > 0 && Date.now() - S.lkAt >= LK_GAP_MS;
+
 	const GST = [
 		"legion",
 		"cats",
@@ -1241,8 +1246,7 @@
 					? U.backoff({ steps: U.POLL_STEPS, jitter: 0.5, up: true })
 					: { next: () => 10000, peek: () => 10000, reset() {} };
 		}
-		if (!full && !force && polling && !S.lkWant.size && Date.now() < pollAt)
-			return;
+		if (!full && !force && polling && !lkDue() && Date.now() < pollAt) return;
 
 		pollN++;
 		if (
@@ -1250,7 +1254,7 @@
 			!force &&
 			!polling &&
 			pollN % (window.LGPushOn && window.LGPushOn("mine") ? 100 : 10) &&
-			!S.lkWant.size
+			!lkDue()
 		)
 			return;
 		if (polling) pollAt = Date.now() + pollB.peek();
@@ -1268,7 +1272,7 @@
 		S.lkWant.clear();
 		if (lk.length) {
 			S.lkAt = Date.now();
-			for (const l of lk) if (S.looks.has(l)) S.lookAt.set(l, S.lkAt);
+			for (const l of lk) S.lookAt.set(l, S.lkAt);
 		}
 		const mc =
 			S.chat && S.chat.on && !(X.live && X.live())
@@ -1327,6 +1331,24 @@
 			return;
 		}
 		if (d.c && d.c !== C) return;
+
+		if (d.lk && typeof d.lk === "object") {
+			for (const [l, v] of Object.entries(d.lk))
+				if (v) {
+					S.looks.set(l, v);
+					S.lookAt.set(l, Date.now());
+				}
+			if (!d.st && d.q == null && !d.a && !d.m && !d.g && d.here == null) {
+				if (S.st && !document.hidden) {
+					try {
+						heroes();
+					} catch (e) {
+						console.error("[шахта] облики", e);
+					}
+				}
+				return;
+			}
+		}
 		if (d.here != null) {
 			hereOf(d);
 			if (!d.st && !d.a && !d.m && !d.g && d.n == null) return;
@@ -1594,13 +1616,12 @@
 			for (const l of ls.filter((x) => x !== X.login()).slice(0, 4))
 				if (
 					!S.others.has(l) &&
-					(!S.looks.has(l) || Date.now() - (S.lookAt.get(l) || 0) > LOOK_MS)
+					!S.looks.has(l) &&
+					Date.now() - (S.lookAt.get(l) || 0) > LK_MISS_MS
 				)
 					S.lkWant.add(l);
-		if (S.lkWant.size && Date.now() - S.lkAt > 5000) {
-			S.lkAt = Date.now();
-			setTimeout(() => poll(), 50);
-		}
+
+		if (lkDue()) setTimeout(() => poll(), 50);
 		if (newFloor && S.pos && S.F) {
 			S.pos = spawnPt();
 			S.path = null;
@@ -2383,7 +2404,6 @@
 	};
 
 	const GONE_MS = 165000;
-	const LOOK_MS = 60000;
 	setInterval(() => {
 		if (!S) return;
 		const old = Date.now() - GONE_MS;

@@ -674,15 +674,18 @@
 							}
 						: {}),
 				}).then(
-					(r) =>
-						r
+					(r) => {
+						const U = window.LGSiteUi;
+						if (U && U.holdFrom) U.holdFrom(r);
+						return r
 							.json()
 							.then((x) =>
 								window.LGSiteUi && window.LGSiteUi.withCode
 									? window.LGSiteUi.withCode(x)
 									: x,
 							)
-							.catch(() => ({ ok: false, error: "не вышло" })),
+							.catch(() => ({ ok: false, error: "не вышло" }));
+					},
 					() => NET,
 				);
 	const toast = (t, bad) => {
@@ -794,6 +797,8 @@
 			} else if (r && r.closed) {
 				S.view = null;
 				S.at = Date.now();
+				S.retryAt = Date.now() + cmTtl();
+				S.rt = t;
 			} else {
 				const U = window.LGSiteUi;
 				if (!S.back)
@@ -802,7 +807,13 @@
 							? U.backoff({ steps: [5000, 10000, 30000, 60000], jitter: 0.5 })
 							: { next: () => 30000, reset() {} };
 				S.retryAt =
-					Date.now() + Math.max(S.back.next(), U && U.hold ? U.hold.left() : 0);
+					Date.now() +
+					Math.max(
+						S.back.next(),
+						r && +r.retryAfter > 0 ? Math.min(300000, +r.retryAfter * 1000) : 0,
+						U && U.hold ? U.hold.left() : 0,
+					);
+				S.rt = t;
 			}
 		} finally {
 			S.busy = false;
@@ -1349,6 +1360,7 @@
 		}
 		S.W = W;
 		S.X = W.X;
+		if (S.retryAt && S.rt !== String(W.town || "")) S.retryAt = 0;
 		const back =
 			S.view &&
 			[...(S.view.soon || []), ...(S.view.eSoon || [])].length &&
@@ -2063,7 +2075,20 @@
 		});
 	}
 
-	const LIVE_MS = 5000;
+	const liveS = (own) =>
+		window.LGPushOn && window.LGPushOn("citymon") ? (own ? 30 : 5) : 2;
+
+	function onCmSnap(el, fn) {
+		const h = (e) => {
+			if (!el.isConnected) {
+				window.removeEventListener("lg-snap", h);
+				return;
+			}
+			const d = e.detail;
+			if (d && d.n === "citymon" && !document.hidden) fn();
+		};
+		window.addEventListener("lg-snap", h);
+	}
 	const leftS = (ms) => (ms >= 3600e3 ? left(ms) : mmss(Math.max(0, ms)));
 
 	const seenF = new Set();
@@ -2105,6 +2130,46 @@
 			});
 		};
 		paint();
+		let asking = false;
+		const refresh = () => {
+			if (asking || gone || !d.isConnected) return;
+			asking = true;
+			mine = 0;
+			void api("/api/citymon/act", { op: "elist" })
+				.finally(() => {
+					asking = false;
+				})
+				.then((r) => {
+					if (!d.isConnected || gone || !r || !r.ok) return;
+					const x = (r.list || []).find((y) => y.id === cur.id);
+					if (x && x.st === "open") {
+						const was = cur.members.map((m) => m.login).join();
+						cur = x;
+						if (
+							was !== x.members.map((m) => m.login).join() ||
+							!box.querySelector("time[data-until]")
+						)
+							paint();
+						return;
+					}
+					if (x && x.st === "done") {
+						end("Бой прошёл.");
+						S.view = null;
+						void load(true).then(draw);
+						if (!showLobbyFight(x)) close();
+						return;
+					}
+					if (!x || !x.mine) {
+						end(
+							cur.lead
+								? "Сбор закрыт."
+								: "Сбор распущен или ты больше не в нём.",
+						);
+						S.view = null;
+						void load(true).then(draw);
+					}
+				});
+		};
 		const T = setInterval(() => {
 			if (!d.isConnected) {
 				clearInterval(T);
@@ -2116,37 +2181,10 @@
 				tm.textContent = leftS(ms);
 				if (ms <= 0 && !gone) end("Сбор распустился сам: бой так и не начали.");
 			}
-			if (document.hidden || gone || ++mine % Math.round(LIVE_MS / 1000))
-				return;
-			void api("/api/citymon/act", { op: "elist" }).then((r) => {
-				if (!d.isConnected || gone || !r || !r.ok) return;
-				const x = (r.list || []).find((y) => y.id === cur.id);
-				if (x && x.st === "open") {
-					const was = cur.members.map((m) => m.login).join();
-					cur = x;
-					if (
-						was !== x.members.map((m) => m.login).join() ||
-						!box.querySelector("time[data-until]")
-					)
-						paint();
-					return;
-				}
-				if (x && x.st === "done") {
-					end("Бой прошёл.");
-					S.view = null;
-					void load(true).then(draw);
-					if (!showLobbyFight(x)) close();
-					return;
-				}
-				if (!x || !x.mine) {
-					end(
-						cur.lead ? "Сбор закрыт." : "Сбор распущен или ты больше не в нём.",
-					);
-					S.view = null;
-					void load(true).then(draw);
-				}
-			});
+			if (document.hidden || gone || ++mine < liveS(true)) return;
+			refresh();
 		}, 1000);
+		onCmSnap(d, refresh);
 		d.addEventListener("click", async (e) => {
 			const b = e.target.closest("[data-op]");
 			if (!b) return;
@@ -2271,7 +2309,7 @@
 				});
 
 				if (pane._cmBusy || (S.dlg && S.dlg.isConnected)) return;
-				if (out || ++n % Math.round(LIVE_MS / 1000) === 0) {
+				if (out || ++n >= liveS(false)) {
 					n = 0;
 					pane._cmBusy = true;
 					void lobbies(pane, opt).finally(() => {
@@ -2279,6 +2317,14 @@
 					});
 				}
 			}, 1000);
+
+			onCmSnap(pane, () => {
+				if (pane._cmBusy || (S.dlg && S.dlg.isConnected)) return;
+				pane._cmBusy = true;
+				void lobbies(pane, opt).finally(() => {
+					pane._cmBusy = false;
+				});
+			});
 		}
 		return r.open || 0;
 	}
@@ -2296,7 +2342,40 @@
 		el: null,
 		seen: 0,
 		live: 5000,
+		retryAt: 0,
+		back: null,
 	};
+
+	const PT_STEPS = [5000, 10000, 20000, 40000, 60000];
+	const ptBack = () => {
+		if (!PT.back) {
+			const U = window.LGSiteUi;
+			PT.back =
+				U && U.backoff
+					? U.backoff({ steps: PT_STEPS, jitter: 0.2, up: true })
+					: (() => {
+							let n = 0;
+							return {
+								next: () => PT_STEPS[Math.min(n++, PT_STEPS.length - 1)],
+								reset() {
+									n = 0;
+								},
+							};
+						})();
+		}
+		return PT.back;
+	};
+	function pfail(r) {
+		const U = window.LGSiteUi,
+			ra = r && +r.retryAfter > 0 ? Math.min(300000, +r.retryAfter * 1000) : 0;
+		PT.retryAt =
+			Date.now() +
+			Math.max(ptBack().next(), ra, U && U.hold ? U.hold.left() : 0);
+	}
+	function pok() {
+		if (PT.back) PT.back.reset();
+		PT.retryAt = 0;
+	}
 	const GST = [
 		"legion",
 		"cats",
@@ -2335,10 +2414,15 @@
 			if (r && r.ok) {
 				PT.v = r;
 				PT.at = Date.now();
+				pok();
 			} else if (r && r.closed) {
 				PT.v = { ok: true, on: false, inv: [] };
 				PT.at = Date.now();
-			}
+				pok();
+			} else pfail(r);
+		} catch (e) {
+			console.warn("[монстры у стен] группа", e);
+			pfail(null);
 		} finally {
 			PT.busy = false;
 		}
@@ -2348,10 +2432,12 @@
 	async function ptick(h) {
 		const g = h && h.cm ? (+h.cm.g || 0) * 10 + (+h.cm.pi || 0) : 0;
 		const has = PT.v && (PT.v.party || (PT.v.inv && PT.v.inv.length));
+		if (g !== PT.g) pok();
 		if (
-			g !== PT.g ||
-			(has && Date.now() - PT.at >= PT.live) ||
-			(!PT.v && h && h.cm)
+			(g !== PT.g ||
+				(has && Date.now() - PT.at >= PT.live) ||
+				(!PT.v && h && h.cm)) &&
+			Date.now() >= PT.retryAt
 		) {
 			PT.g = g;
 			await pload(true);

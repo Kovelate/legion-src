@@ -1510,8 +1510,28 @@ button.gl-gt:focus-visible,
 	overflow: hidden;
 }
 .gl-sub[data-win="log"] .gl-subh,
-.gl-sub[data-win="log"] .gl-logseg {
+.gl-sub[data-win="log"] .gl-logseg,
+.gl-sub[data-win="log"] .gl-logfind {
 	flex: none;
+}
+
+.gl-logfind {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 8px;
+}
+.gl-logfind input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.gl-logfind .gl-btn {
+	flex: none;
+	min-height: 44px;
+}
+.gl-logmore {
+	display: block;
+	width: 100%;
+	margin: 10px 0 4px;
 }
 .gl-sub[data-win="log"] .gl-subb {
 	flex: 1 1 auto;

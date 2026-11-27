@@ -140,14 +140,33 @@
 		}
 		return s;
 	}
+
+	const LD_STEPS = [5000, 10000, 20000, 40000, 60000];
+	let ldFails = 0,
+		ldAt = 0;
 	function load(X) {
-		if (CAT || loading) return;
+		if (CAT || loading || Date.now() < ldAt) return;
 		loading = true;
 		failed = false;
 		X.api(window.LGBoot ? window.LGBoot.url("ach") : "/api/ach").then((r) => {
 			loading = false;
-			if (r && r.ok && Array.isArray(r.list)) CAT = r;
-			else failed = true;
+			if (r && r.ok && Array.isArray(r.list)) {
+				CAT = r;
+				ldFails = 0;
+				ldAt = 0;
+			} else {
+				failed = true;
+				const U = window.LGSiteUi,
+					ra =
+						r && +r.retryAfter > 0 ? Math.min(300000, +r.retryAfter * 1000) : 0;
+				ldAt =
+					Date.now() +
+					Math.max(
+						LD_STEPS[Math.min(ldFails++, LD_STEPS.length - 1)],
+						ra,
+						U && U.hold ? U.hold.left() : 0,
+					);
+			}
 			X.rerender();
 		});
 	}

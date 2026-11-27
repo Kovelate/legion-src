@@ -196,9 +196,10 @@
 						.join("")}</ul>`
 				: "";
 			const me0 = C.X.login(),
-				board = (H.donors || []).length
-					? `<h4>Доска почёта казны</h4><ol class="cy-hgv">${H.donors.map(([l, v], i) => `<li class="${l === me0 ? "me" : ""}"><span>${i + 1}</span><b>${esc(l === me0 ? l + " (ты)" : l)}</b><em>${M(v)}</em></li>`).join("")}</ol>`
-					: "";
+				board =
+					(H.donors || []).length || (H.donorsP || []).length
+						? `<h4>Доска почёта казны - эта неделя</h4>${(H.donors || []).length ? `<ol class="cy-hgv">${H.donors.map(([l, v], i) => `<li class="${l === me0 ? "me" : ""}"><span>${i + 1}</span><b>${esc(l === me0 ? l + " (ты)" : l)}</b><em>${M(v)}</em></li>`).join("")}</ol>` : '<p class="note">На этой неделе взносов ещё нет.</p>'}${donPrev(H, me0)}`
+						: "";
 			const put =
 				can && !H.w && ore.length
 					? `<h4>Положить из сумки</h4><ul class="cy-hput">${ore
@@ -230,6 +231,12 @@
       ${hallCoinHtml(H)}<h4>Мэр</h4>${mayorBox}${bld}${put}${give}${board}${log}${top}`;
 		}
 
+		const donPrev = (H, me) => {
+			const P = H.donorsP || [];
+			if (!P.length) return "";
+			const M = (n) => (C.X.money ? C.X.money(n) : String(n));
+			return `<details class="cy-hlog cy-hbprev"><summary>Прошлая неделя</summary><ol class="cy-hbd">${P.map(([l, v], i) => `<li class="${l === me ? "me" : ""}"><span class="cy-hbn">${i + 1}</span><b>${esc(l)}${l === me ? "<small> (ты)</small>" : ""}</b><em>${M(v)}</em></li>`).join("")}</ol></details>`;
+		};
 		const HALL_ASK_MS = 8000,
 			HALL_ASK_MIN = 350,
 			HG = { ask: null, gone: new Map() };
@@ -920,7 +927,7 @@
 				mg = `<div class="cy-hmg">${mg}</div>`;
 			}
 			const D = H.donors || [];
-			const board = `<section class="cy-hboard" aria-label="Доска почёта казны"><h4><span aria-hidden="true">🏆</span> Доска почёта</h4>${D.length ? `<ol class="cy-hbd">${D.map(([l, v], i) => `<li class="${i < 3 ? "cy-hp" + (i + 1) : ""}${l === me ? " me" : ""}"><span class="cy-hbn">${i + 1}</span><b>${esc(l)}${l === me ? "<small> (ты)</small>" : ""}</b><em>${M(v)}</em></li>`).join("")}</ol>` : '<p class="note">Пока пусто - отдай руду в казну и стань первым.</p>'}<p class="cy-hbnote">Кто больше всех отдал в казну (по ценам скупщика).</p></section>`;
+			const board = `<section class="cy-hboard" aria-label="Доска почёта казны"><h4><span aria-hidden="true">🏆</span> Доска почёта</h4>${D.length ? `<ol class="cy-hbd">${D.map(([l, v], i) => `<li class="${i < 3 ? "cy-hp" + (i + 1) : ""}${l === me ? " me" : ""}"><span class="cy-hbn">${i + 1}</span><b>${esc(l)}${l === me ? "<small> (ты)</small>" : ""}</b><em>${M(v)}</em></li>`).join("")}</ol>` : '<p class="note">Пока пусто - отдай руду в казну и стань первым.</p>'}<p class="cy-hbnote">Кто больше всех отдал в казну за эту неделю (по ценам скупщика). Доска обнуляется в понедельник в 00:00 по Москве, казна остаётся.</p>${donPrev(H, me)}</section>`;
 			const gv = (r.gv || []).length
 				? `<details class="cy-hlog"><summary>Больше всех сдали скупщику</summary><ol class="cy-hgv">${r.gv
 						.slice(0, 50)

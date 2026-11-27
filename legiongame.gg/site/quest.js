@@ -1444,7 +1444,7 @@
 
 	const shMenuOk = () =>
 		!!(qaOn() && X.say && window.LGInventory && window.LGInventory.menu);
-	const SHM = { lp: 0, at: 0, p0: null, v: null };
+	const SHM = { lp: 0, at: 0, p0: null, v: null, eat: false };
 	function shMenuBind(el, v, box, show) {
 		SHM.v = v;
 		const btnOf = (e) => e.target.closest && e.target.closest("[data-qsh]");
@@ -1470,6 +1470,7 @@
 		box.addEventListener(
 			"pointerdown",
 			(e) => {
+				SHM.eat = false;
 				if (e.pointerType !== "touch") return;
 				const b = btnOf(e);
 				if (!b) return;
@@ -1482,6 +1483,7 @@
 					const nb = el.querySelector(`.q-shl [data-qsh="${i}"]`);
 					if (!nb) return;
 					SHM.at = Date.now();
+					SHM.eat = true;
 					if (navigator.vibrate)
 						try {
 							navigator.vibrate(12);
@@ -1506,11 +1508,15 @@
 		);
 		box.addEventListener("pointerup", stop);
 		box.addEventListener("pointercancel", stop);
+		box.addEventListener("keydown", () => {
+			SHM.eat = false;
+		});
 
 		box.addEventListener(
 			"click",
 			(e) => {
-				if (Date.now() - SHM.at < 800 && btnOf(e)) {
+				if ((SHM.eat || Date.now() - SHM.at < 800) && btnOf(e)) {
+					SHM.eat = false;
 					e.stopPropagation();
 					e.preventDefault();
 				}

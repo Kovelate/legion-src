@@ -15,9 +15,15 @@
 		);
 	const NET = { ok: false, error: "Нет связи - попробуй ещё раз" };
 	const j = (r) => r.json().catch(() => ({ ok: false, error: "не вышло" }));
-	const get = () =>
-		fetch(base() + "/api/guildraid", { credentials: "same-origin" }).then(
-			j,
+
+	const get = (v) =>
+		fetch(
+			base() +
+				"/api/guildraid" +
+				(v != null ? "?v=" + encodeURIComponent(v) : ""),
+			{ credentials: "same-origin" },
+		).then(
+			(res) => j(holdFrom(res)),
 			() => NET,
 		);
 	const post = (b) =>
@@ -196,7 +202,92 @@
 		err: "",
 		lastR: 0,
 		sel: null,
+		idle: 0,
+		push: false,
+		pv: null,
 	};
+
+	const UI = () => window.LGSiteUi || null;
+	let boX = null;
+	const BO_STEPS = [5000, 10000, 30000, 60000];
+
+	const FIGHT_MS = 750;
+	const bo = () =>
+		boX ||
+		(boX =
+			UI() && UI().backoff
+				? UI().backoff({ steps: BO_STEPS, jitter: 0.5, up: true })
+				: (() => {
+						let n = 0;
+						return {
+							next: () => BO_STEPS[Math.min(n++, BO_STEPS.length - 1)],
+							reset() {
+								n = 0;
+							},
+						};
+					})());
+	const hidden = () => {
+		const u = UI();
+		return u && u.bg && u.bg.state
+			? u.bg.state() === "hidden"
+			: !!document.hidden;
+	};
+	const holdLeft = () => {
+		const u = UI();
+		try {
+			return u && u.hold ? u.hold.left() : 0;
+		} catch (e) {
+			return 0;
+		}
+	};
+	const holdFrom = (res) => {
+		const u = UI();
+		try {
+			if (u && u.holdFrom) u.holdFrom(res);
+		} catch (e) {}
+		return res;
+	};
+	const pushOn = () => !!(window.LGPushOn && window.LGPushOn("guildrun"));
+
+	function nextMs(r, base, live, until) {
+		const push = pushOn();
+		let ms;
+		if (!(r && r.ok)) ms = bo().next();
+		else {
+			bo().reset();
+			const left = +until > 0 ? +until - now() : -1;
+			const each = Math.round(base * (1 + 0.3 * Math.random()));
+
+			ms = push
+				? live
+				: left > 0
+					? Math.max(
+							Math.min(base, 1000),
+							Math.min(Math.round(left + 400 + 1200 * Math.random()), each),
+						)
+					: each;
+		}
+		if (S.push && !push)
+			ms = Math.max(ms, 500 + Math.round(2500 * Math.random()));
+		S.push = push;
+		return Math.max(ms, holdLeft());
+	}
+
+	let bgSub = false;
+	function bgWatch(again) {
+		if (bgSub) return;
+		bgSub = true;
+		const back = () => {
+			if (S.el && S.idle && !hidden()) {
+				S.idle = 0;
+				again();
+			}
+		};
+		const u = UI();
+		if (u && u.bg && u.bg.on) u.bg.on(back);
+		else document.addEventListener("visibilitychange", back);
+	}
+
 	const now = () => Date.now() + S.off;
 	function toast(t) {
 		const x = document.createElement("div");
@@ -206,9 +297,14 @@
 		(S.el || document.body).appendChild(x);
 		setTimeout(() => x.remove(), 2600);
 	}
-	async function load() {
-		const r = await get();
+	async function load(cheap) {
+		const r = await get(cheap && S.d && S.pv != null ? S.pv : null);
+		if (r && r.ok && r.same) {
+			S.err = "";
+			return r;
+		}
 		if (r && r.ok) {
+			S.pv = r.pv != null ? r.pv : null;
 			S.d = r;
 			S.off = (r.now || Date.now()) - Date.now();
 			S.err = "";
@@ -222,7 +318,9 @@
 			const r = await post(b);
 			if (r && r.ok) {
 				S.d = r;
+				S.pv = r.pv != null ? r.pv : null;
 				S.off = (r.now || Date.now()) - Date.now();
+				if (S.el && S.pollT && !S.loading) sched(r);
 			} else toast((r && r.error) || "не вышло");
 			paint();
 			return r;
@@ -230,39 +328,59 @@
 			S.busy = false;
 		}
 	}
-	function poll() {
+	async function poll(first, cheap) {
 		clearTimeout(S.pollT);
+		S.pollT = 0;
 		if (!S.el) return;
 		if (S.loading) {
 			S.again = 1;
 			return;
 		}
+		bgWatch(() => poll());
+		if (hidden() && !first) {
+			S.idle = 1;
+			return;
+		}
 		S.loading = 1;
-		load()
-			.then(() => {
-				if (S.el) paint();
-			})
-			.finally(() => {
-				S.loading = 0;
-				if (!S.el) return;
-				if (S.again) {
-					S.again = 0;
-					poll();
-					return;
-				}
-				const st = S.d && S.d.st,
-					fast = st === "fight" || st === "open";
+		let r = null;
+		try {
+			r = await load(cheap);
+			if (S.el && !(r && r.same)) paint();
+		} finally {
+			S.loading = 0;
+		}
+		if (!S.el) return;
+		if (S.again) {
+			S.again = 0;
+			poll();
+			return;
+		}
 
-				const push = window.LGPushOn && window.LGPushOn("guildrun");
-				S.pollT = setTimeout(
-					poll,
-					push ? (fast ? 30000 : 300000) : fast ? 1000 : 5000,
-				);
-			});
+		sched(r);
+	}
+
+	function sched(r) {
+		clearTimeout(S.pollT);
+		const st = S.d && S.d.st,
+			fast = st === "fight" || st === "open";
+		const until = st === "fight" && S.d.fight ? S.d.fight.until : null;
+		S.pollT = setTimeout(
+			() => poll(false, true),
+			nextMs(
+				r,
+				st === "fight" ? FIGHT_MS : fast ? 3000 : 5000,
+				fast ? 30000 : 300000,
+				until,
+			),
+		);
 	}
 	window.addEventListener("lg-snap", (e) => {
 		const d = e.detail;
-		if (!d || d.n !== "guildrun" || !S.el || document.hidden) return;
+		if (!d || d.n !== "guildrun" || !S.el) return;
+		if (hidden()) {
+			S.idle = 1;
+			return;
+		}
 		const own =
 			S.d && S.d.guild && S.d.guild.id != null ? String(S.d.guild.id) : "";
 		if (d.g && own && String(d.g) !== own) return;
@@ -295,7 +413,7 @@
 				window.LGChatOne.dock("guildraid", el);
 		} catch (e) {}
 		paint();
-		poll();
+		poll(true);
 		S.tickT = setInterval(timers, 250);
 	}
 	function close() {
@@ -627,7 +745,7 @@
 		);
 	}
 	function timers() {
-		if (!S.el) return;
+		if (!S.el || hidden()) return;
 		for (const x of S.el.querySelectorAll("[data-until]")) {
 			const ms = +x.dataset.until - now();
 			x.textContent =

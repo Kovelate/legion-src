@@ -287,10 +287,12 @@
 		war: (name, q) =>
 			get("/war/" + name + (q ? "?" + new URLSearchParams(q).toString() : "")),
 		warAct: (b) => post("/war/act", b),
-		log: (before, cat) =>
+
+		log: (before, cat, q) =>
 			get(
-				"/log?cat=" +
-					encodeURIComponent(cat || "fight") +
+				(q
+					? "/log?q=" + encodeURIComponent(q)
+					: "/log?cat=" + encodeURIComponent(cat || "fight")) +
 					(before ? "&before=" + encodeURIComponent(before) : ""),
 			),
 
@@ -2032,27 +2034,33 @@
 			out += `<li class="gl-lg k-${esc(e.k)}"><span class="gl-lgi" aria-hidden="true">${LOG_ICO[e.k] || LOG_ICO2[e.k] || "•"}</span><span class="gl-lgt">${t}</span><time>${esc(hm(e.at))}</time></li>`;
 		}
 		if (day) out += "</ul>";
+		if (!out && L.q)
+			out = `<p class="gl-note">По запросу «${esc(L.q)}» ничего не нашлось. Ищи по нику, событию (вступил, рейд, вылазка) или названию.</p>`;
 		if (!out)
 			out = `<p class="gl-note">${({ fight: "Боёв пока не было: здесь появятся мини-сражения, вылазки, рейды и сборы на элитных.", guild: "Событий гильдии пока нет: здесь появятся новые уровни, смена названия и набора.", mem: "Пока пусто: здесь видно, кто вступил, вышел, кого исключили и повысили." })[L.cat] || "В журнале пока пусто."}</p>`;
+
 		return (
 			out +
 			(L.more
-				? `<button type="button" class="gl-btn ghost" data-logmore="1"${L.busy ? " disabled" : ""}>Показать ещё</button>`
+				? `<button type="button" class="gl-btn ghost gl-logmore" data-logmore="1"${L.busy ? " disabled" : ""}>Загрузить ещё</button>`
 				: "")
 		);
 	}
+
+	const logKey = (gid, L) => gid + "|" + (L.q ? "?" + L.q : L.cat);
 	async function logTab(pane, more) {
 		const gid = W.guild && String(W.guild.guild.id);
 		if (!more || !W.log || W.log.gid !== gid) {
 			W.log = {
 				gid,
 				cat: W.logCat || "fight",
+				q: W.logQ || "",
 				rows: [],
 				more: false,
 				busy: true,
 			};
 
-			const was = W.logC && W.logC[gid + "|" + W.log.cat];
+			const was = W.logC && W.logC[logKey(gid, W.log)];
 			if (was) {
 				pane.innerHTML = logHtml({ ...was, busy: true });
 				pane.scrollTop = 0;
@@ -2064,6 +2072,7 @@
 		const r = await api.log(
 			more && L.rows.length ? L.rows[L.rows.length - 1].id : "",
 			L.cat,
+			L.q,
 		);
 		if (!W || W.log !== L) return;
 		L.busy = false;
@@ -2076,8 +2085,9 @@
 		}
 		L.rows = more ? L.rows.concat(r.log || []) : r.log || [];
 		L.more = !!r.more;
-		(W.logC || (W.logC = {}))[gid + "|" + L.cat] = {
+		(W.logC || (W.logC = {}))[logKey(gid, L)] = {
 			cat: L.cat,
+			q: L.q,
 			rows: L.rows,
 			more: L.more,
 		};
@@ -3187,17 +3197,56 @@
 		if (k === "log") {
 			const S = subWin("log", "Журнал гильдии");
 			const cat = W.logCat || "fight";
-			S.body.innerHTML = `<div class="gl-seg gl-logseg" role="tablist" aria-label="Журнал">${LOG_CATS.map(([k, t, ic]) => `<button type="button" role="tab" data-logcat="${k}" aria-selected="${k === cat}">${ico(ic, 16)}${t}</button>`).join("")}</div><div class="gl-pane gl-subpane" data-tab="log"></div>`;
-			logTab(S.body.querySelector(".gl-pane"));
+			W.logQ = "";
+
+			S.body.innerHTML =
+				`<form class="gl-search gl-logfind" role="search" autocomplete="off"><input type="search" name="q" maxlength="40" placeholder="Поиск: ник, событие, название" aria-label="Поиск по журналу гильдии"><button type="submit" class="gl-btn">Найти</button></form>` +
+				`<div class="gl-seg gl-logseg" role="tablist" aria-label="Журнал">${LOG_CATS.map(([k, t, ic]) => `<button type="button" role="tab" data-logcat="${k}" aria-selected="${k === cat}">${ico(ic, 16)}${t}</button>`).join("")}</div><div class="gl-pane gl-subpane" data-tab="log"></div>`;
+			const pane = S.body.querySelector(".gl-pane"),
+				form = S.body.querySelector(".gl-logfind"),
+				inp = form.elements.q;
+			const tabsSel = (k) =>
+				S.body
+					.querySelectorAll("[data-logcat]")
+					.forEach((x) =>
+						x.setAttribute("aria-selected", String(x.dataset.logcat === k)),
+					);
+			const find = (v) => {
+				const t = String(v || "")
+					.replace(/\s+/g, " ")
+					.trim()
+					.slice(0, 40);
+				if (t && t.length < 2) {
+					inp.setCustomValidity("Нужно хотя бы 2 буквы");
+					inp.reportValidity();
+					return;
+				}
+				inp.setCustomValidity("");
+				if (t === (W.logQ || "")) return;
+				W.logQ = t;
+				tabsSel(t ? "" : W.logCat || "fight");
+				logTab(pane);
+			};
+			form.addEventListener("submit", (e) => {
+				e.preventDefault();
+				find(inp.value);
+			});
+			inp.addEventListener("input", () => {
+				inp.setCustomValidity("");
+				if (!inp.value.trim() && W.logQ) find("");
+			});
+			logTab(pane);
 			S.body.addEventListener("click", subClick);
 			S.body.addEventListener("click", (e) => {
 				const b = e.target.closest("[data-logcat]");
-				if (!b || b.getAttribute("aria-selected") === "true") return;
+				if (!b || (b.getAttribute("aria-selected") === "true" && !W.logQ))
+					return;
 				W.logCat = b.dataset.logcat;
-				S.body
-					.querySelectorAll("[data-logcat]")
-					.forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-				logTab(S.body.querySelector(".gl-pane"));
+				W.logQ = "";
+				inp.value = "";
+				inp.setCustomValidity("");
+				tabsSel(W.logCat);
+				logTab(pane);
 			});
 			return;
 		}
