@@ -16,7 +16,7 @@
 				"Иногда клюёт крупная рыба: поплавок ныряет - успей «Подсечь» за полторы минуты, будет редкий улов (янтарь, жемчуг). Не успел - ничего не теряешь.",
 				"Рыбачат только в городах с водой: у моря, озера, реки и на льду. В городе без воды рыбалки нет.",
 				"Улов продаётся Рыбаку Сому: монеты - тебе за весь улов. Городу - часть улова на склад ресурсов (виден в Ратуше), за остальное - монеты в казну, на стены, башни и здания.",
-				"В сутки - {cap} мин рыбалки (новые сутки в 05:00 МСК). В походе удочка сматывается сама - улов остаётся.",
+				"В сутки - {cap} мин рыбалки (новые сутки в {nd} МСК). В походе удочка сматывается сама - улов остаётся.",
 			],
 			dry: "В этом городе нет воды - рыбалки нет",
 			wet: "Рыбачат в городах у моря, озера, реки и на льду",
@@ -142,7 +142,22 @@
       ${bag.length ? `<ul class="cr-bag">${bag.map(([r, v]) => `<li><span>${esc((m.nm || {})[r] || r)}</span><b>${shTxt(v)} шт.</b></li>`).join("")}</ul>` : '<p class="muted">Пока пусто.</p>'}
       <div class="cr-act"><button type="button" class="btn ghost" data-a="craftSell"${bag.length ? "" : " disabled"}>Продать улов: ${esc(C.seller)}${val >= 1 ? ` (≈ ${Math.floor(val)} монет)` : ""}</button></div>
       <p class="muted cr-meta">Сегодня: ${m.used || 0}${m.cap ? ` / ${m.cap}` : ""} мин · мастерство ${m.lv || 1}${m.need ? ` (${m.xp || 0} / ${m.need})` : ""}</p>
-      <details class="cr-how"><summary>Как устроено</summary><ul>${C.how.map((s) => `<li>${esc(s.replace("{len}", m.len || 20).replace("{cap}", m.cap || "-"))}</li>`).join("")}</ul></details>`;
+      <details class="cr-how"><summary>Как устроено</summary><ul>${C.how
+				.map(
+					(s) =>
+						`<li>${esc(
+							s
+								.replace("{len}", m.len || 20)
+								.replace("{cap}", m.cap || "-")
+								.replace(
+									"{nd}",
+									m.nd > 0
+										? new Date(+m.nd + 3 * 3600e3).toISOString().slice(11, 16)
+										: "00:00",
+								),
+						)}</li>`,
+				)
+				.join("")}</ul></details>`;
 		W.querySelectorAll("[data-a]").forEach((b) => {
 			b.onclick = () => send(b.dataset.a, b);
 		});

@@ -126,6 +126,10 @@
 			body.innerHTML = `<p class="dlc-err">${esc((data && data.error) || "Задания дня пока недоступны")}</p>`;
 			return;
 		}
+
+		const rs = $(".dlc-rs", card);
+		if (rs && +data.reset > 0)
+			rs.textContent = `новые в ${new Date(+data.reset + 3 * 3600e3).toISOString().slice(11, 16)} МСК`;
 		const mk = (data.marks || [])
 			.map((m) => {
 				const ico = m.st === 2 ? ICO().ok : m.it ? ICO().i : ICO().c,
@@ -168,7 +172,7 @@
 			card.hidden = true;
 			card.setAttribute("role", "region");
 			card.setAttribute("aria-label", "Задания дня - подробно");
-			card.innerHTML = `<div class="dlc-hd"><b>Задания дня</b><span class="dlc-rs">новые в 05:00 МСК</span><button type="button" class="dlc-x" data-dl-close aria-label="Свернуть">×</button></div><div class="dlc-body"></div>`;
+			card.innerHTML = `<div class="dlc-hd"><b>Задания дня</b><span class="dlc-rs">новые в 00:00 МСК</span><button type="button" class="dlc-x" data-dl-close aria-label="Свернуть">×</button></div><div class="dlc-body"></div>`;
 			card.addEventListener("click", onCard);
 			document.body.appendChild(card);
 			window.addEventListener("resize", position);

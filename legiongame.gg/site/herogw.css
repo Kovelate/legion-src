@@ -4413,6 +4413,38 @@ html.gwdark #tab-hero.hw-fr.gw-dk[data-hwv="log"] {
 	color: var(--gw-mute);
 	font: 600 13px var(--gw-tx);
 }
+
+#tab-hero.hw-fr[data-hwv="log"] .jr-q {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 8px 0;
+}
+#tab-hero.hw-fr[data-hwv="log"] .jr-qi {
+	flex: 1 1 200px;
+	min-width: 0;
+	min-height: 44px;
+	padding: 4px 12px;
+	border: 3px solid var(--gw-line);
+	border-radius: var(--gw-rt);
+	background: var(--gw-soft);
+	color: var(--gw-ink);
+	font: 600 14px var(--gw-tx);
+}
+#tab-hero.hw-fr[data-hwv="log"] .jr-qi::placeholder {
+	color: var(--gw-mute);
+	opacity: 1;
+}
+#tab-hero.hw-fr[data-hwv="log"] .jr-qi:focus-visible {
+	outline: 3px solid var(--gw-focus);
+	outline-offset: 1px;
+}
+#tab-hero.hw-fr[data-hwv="log"] .jr-q .btn {
+	min-height: 44px;
+}
+#tab-hero.hw-fr[data-hwv="log"] .jr-page {
+	min-height: 44px;
+}
 #tab-hero.hw-fr[data-hwv="log"] .jr-list {
 	gap: 0;
 }

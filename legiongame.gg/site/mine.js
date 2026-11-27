@@ -608,6 +608,19 @@
 		ruin: "руины",
 	};
 	const stars = (d) => "★".repeat(Math.max(1, Math.min(5, +d || 1)));
+
+	const mskD = (t) => new Date(+t + 3 * 3600e3),
+		hmMsk = (t) => mskD(t).toISOString().slice(11, 16);
+	const whenMsk = (t) => {
+		const d = mskD(t),
+			p2 = (x) => String(x).padStart(2, "0");
+		return `${["вс", "пн", "вт", "ср", "чт", "пт", "сб"][d.getUTCDay()]} ${p2(d.getUTCDate())}.${p2(d.getUTCMonth() + 1)} в ${hmMsk(t)}`;
+	};
+	const dayHM = (st) => (st && +st.nd > 0 ? hmMsk(st.nd) : "00:00");
+	const nextMine = (st) =>
+		st && +st.reset > Date.now()
+			? ` (следующая - ${whenMsk(st.reset)} МСК)`
+			: "";
 	const q = () => `?c=${encodeURIComponent(C)}`;
 	const CB = () => C.split(".")[0];
 
@@ -3835,7 +3848,7 @@
 		if (!(S.st.front || []).includes(i)) return tip(tx().far);
 		if (S.me && S.me.cap > 0 && S.me.day >= S.me.cap)
 			return tip(
-				`На сегодня хватит: ${mmss(S.me.cap)} работы. Новые сутки - в 05:00`,
+				`На сегодня хватит: ${mmss(S.me.cap)} работы. Новые сутки - в ${dayHM(S.st)}`,
 			);
 		if (toQueue && S.me && S.me.fx && S.me.fx.q && S.myI >= 0) {
 			queueRock(i, pt, tr);
@@ -5143,7 +5156,7 @@
 							.join("")}</ol>`
 					: ""
 			}
-      <p class="muted">Вклад - сколько работы вложил герой. Каждую субботу в 18:00 - новая шахта.</p></div>`;
+      <p class="muted">Вклад - сколько работы вложил герой. Каждую неделю - новая шахта${esc(nextMine(st))}.</p></div>`;
 	}
 
 	function questsOld(q, qc, canClaim) {
@@ -7409,8 +7422,8 @@
 						: []),
 					"Чем больше ты копаешь, тем выше мастерство «Горное дело», и тем сильнее бьёт герой.",
 					v.cap > 0
-						? `За сутки можно копать до ${v.capT} на все шахты вместе, новые сутки начинаются в 05:00 МСК.`
-						: "Время копания за сутки считается с 05:00 МСК.",
+						? `За сутки можно копать до ${v.capT} на все шахты вместе, новые сутки начинаются в ${v.dayHM} МСК.`
+						: `Время копания за сутки считается заново с ${v.dayHM} МСК.`,
 				],
 			],
 			[
@@ -7482,7 +7495,7 @@
 			[
 				"Неделя",
 				[
-					`Каждую субботу в 18:00 МСК начинается новая шахта с 1-го этажа, а ${v.pick ? "кирка, сумка" : "сумка"}, казна и мастерство остаются.`,
+					`Каждую неделю начинается новая шахта с 1-го этажа${v.next}, а ${v.pick ? "кирка, сумка" : "сумка"}, казна и мастерство остаются.`,
 					`Если твой вклад за неделю не меньше 60 (около часа копания), ты получишь награду за глубину: ${v.week}. Между этими этажами она растёт плавно.`,
 					"С 30-го этажа к награде добавляется сфера, а с 60-го - ещё и звезда.",
 				],
@@ -7534,6 +7547,8 @@
 			cap,
 			capT: helpHm(cap),
 			week,
+			dayHM: dayHM(st),
+			next: nextMine(st),
 			pick: pickOn(),
 			buyer: buyerOn(),
 			v3: V3(),
@@ -7634,7 +7649,7 @@
 									.join("")}</ol>`
 							: ""
 					}
-          <p class="muted">Вклад — сколько работы вложил герой. Каждую субботу в 18:00 — новая шахта.</p><button type="button" class="btn primary" data-x>Закрыть</button>`;
+          <p class="muted">Вклад - сколько работы вложил герой. Каждую неделю - новая шахта${esc(nextMine(st))}.</p><button type="button" class="btn primary" data-x>Закрыть</button>`;
 			d.querySelector("[data-x]").onclick = shut;
 			d.querySelectorAll("[data-bt]").forEach((b) => {
 				b.onclick = () => show(b.dataset.bt);

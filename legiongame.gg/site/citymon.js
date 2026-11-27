@@ -700,6 +700,8 @@
 			ss = v % 60;
 		return mm ? `${mm} мин${ss ? ` ${ss} с` : ""}` : `${ss} с`;
 	};
+
+	const hmMsk = (t) => new Date(+t + 3 * 3600e3).toISOString().slice(11, 16);
 	const left = (ms) => {
 		const m = Math.max(1, Math.round(ms / 60000)),
 			h = Math.floor(m / 60);
@@ -1485,7 +1487,7 @@
 		}
 		if (!P || (!V.ft && V.daily.left <= 0)) {
 			dialog(
-				`<h3>Монстры ушли</h3><p class="cm-sub">Сегодня ты отбил всех (${V.daily.max} из ${V.daily.max}). Следующие придут через ${esc(left(V.daily.next - srvNow()))} - в 05:00 по Москве.</p><div class="cm-btns"><button type="button" class="cm-bt acc" data-x>Понятно</button></div>`,
+				`<h3>Монстры ушли</h3><p class="cm-sub">Сегодня ты отбил всех (${V.daily.max} из ${V.daily.max}). Следующие придут через ${esc(left(V.daily.next - srvNow()))} - в ${hmMsk(V.daily.next)} по Москве.</p><div class="cm-btns"><button type="button" class="cm-bt acc" data-x>Понятно</button></div>`,
 			);
 			return;
 		}
@@ -1517,7 +1519,7 @@
       <div class="cm-pack">${P.pack.map(card).join("")}</div>
       ${my ? powScale(pw, my) : `<div class="cm-row"><span>Сила стаи: <b class="pw ${cls}">${pw}</b></span></div>`}
       ${rewardRow(P.reward)}${hpRow(V.hero)}
-      ${V.ft ? ftNote(V.ft) : `<p class="cm-note">Боёв с наградой сегодня: <b>${V.daily.n} из ${V.daily.max}</b> (на все стаи). Стая вернётся новой через ${respT(V.respawnMin)}; после ${V.daily.max}-го боя - в 05:00 МСК.</p>`}
+      ${V.ft ? ftNote(V.ft) : `<p class="cm-note">Боёв с наградой сегодня: <b>${V.daily.n} из ${V.daily.max}</b> (на все стаи). Стая вернётся новой через ${respT(V.respawnMin)}; после ${V.daily.max}-го боя - в ${hmMsk(V.daily.next)} МСК.</p>`}
       ${gNote}<p class="cm-err" role="alert">${busy ? esc(busy) : ""}</p></div>
       <div class="cm-btns"><button type="button" class="cm-bt" data-x>Не сейчас</button><button type="button" class="cm-bt acc" data-go${busy ? " disabled" : ""}>${esc(goT)}</button></div>`
 				: `<h3>Напасть на монстров у стен?</h3>
@@ -1525,7 +1527,7 @@
       <div class="cm-pack">${P.pack.map(card).join("")}</div>
       <div class="cm-row"><span>Сила стаи: <b class="pw ${cls}">${pw}</b></span>${my ? `<span>Твоя сила: <b class="pw">${my}</b></span>` : ""}<span>${V.ft ? `Силы героя: ${V.ft.p} из ${V.ft.max}` : `Боёв с наградой сегодня: ${V.daily.n} из ${V.daily.max}`}</span></div>
       ${rewardRow(P.reward)}${hpRow(V.hero)}
-      ${V.ft ? ftNote(V.ft) : `<p class="cm-note">Боёв с наградой в день у стен этого города - ${V.daily.max} на все его стаи (у каждого твоего города - свои); какие выбрать - решай сам. Стая, с которой бился, вернётся новой через ${respT(V.respawnMin)}. После ${V.daily.max}-го боя уходят все до 05:00 МСК.</p>`}
+      ${V.ft ? ftNote(V.ft) : `<p class="cm-note">Боёв с наградой в день у стен этого города - ${V.daily.max} на все его стаи (у каждого твоего города - свои); какие выбрать - решай сам. Стая, с которой бился, вернётся новой через ${respT(V.respawnMin)}. После ${V.daily.max}-го боя уходят все до ${hmMsk(V.daily.next)} МСК.</p>`}
       ${gNote}<p class="cm-err" role="alert">${busy ? esc(busy) : ""}</p>
       <div class="cm-btns"><button type="button" class="cm-bt" data-x>Не сейчас</button><button type="button" class="cm-bt acc" data-go${busy ? " disabled" : ""}>${esc(goT)}</button></div>`,
 		);

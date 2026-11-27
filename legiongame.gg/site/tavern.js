@@ -4724,7 +4724,11 @@
 			b.setAttribute("aria-busy", on ? "true" : "false");
 		}
 	};
-	const nextAt = "05:00";
+
+	const hhmm = (at, def) =>
+		+at > 0 ? new Date(+at + 3 * 3600e3).toISOString().slice(11, 16) : def;
+	const nextAt = () => hhmm(D().nx, "00:00");
+	const weekAt = () => hhmm(D().nw, "00:00");
 	const mins = (ms) => {
 		const m = Math.max(0, Math.ceil(ms / 60000));
 		return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`;
@@ -4767,7 +4771,7 @@
 		win("", (b, re) => {
 			const d = D(),
 				R = d.rumors || [];
-			b.innerHTML = `<h2>Доска слухов</h2><p class="gl-note">Три слуха в день, новые - в ${nextAt}. Подсказки об округах, что говорят в таверне, заказы трактирщика.</p>
+			b.innerHTML = `<h2>Доска слухов</h2><p class="gl-note">Три слуха в день, новые - в ${nextAt()}. Подсказки об округах, что говорят в таверне, заказы трактирщика.</p>
         ${R.map((x) => `<div class="card"><div class="grow"><span class="tag">${esc(x.k)}</span><b>${esc(x.t)}</b><small>${esc(x.x)}</small></div>${x.k === "Заказ" ? '<button class="gl-mini" data-job>На кухню</button>' : ""}</div>`).join("")}
         ${
 					d.secret
@@ -5057,7 +5061,9 @@
 				if (tab === "top")
 					body =
 						topTbl(top, "Побед за неделю") +
-						'<p class="gl-note">Таблица недели - с понедельника 05:00.</p>';
+						'<p class="gl-note">Таблица недели - с понедельника ' +
+						weekAt() +
+						".</p>";
 				b.innerHTML = `<h2>Стол силачей</h2>${tabs(
 					[
 						["npc", "Силач"],
@@ -5369,7 +5375,9 @@
 			if (tab === "top")
 				body =
 					topTbl(G.top, "Побед над Яковым") +
-					'<p class="gl-note">Таблица недели - с понедельника 05:00.</p>';
+					'<p class="gl-note">Таблица недели - с понедельника ' +
+					weekAt() +
+					".</p>";
 			b.innerHTML = `<h2>Гвинт</h2>${tabs(
 				[
 					["tables", "Столы"],
@@ -5432,7 +5440,9 @@
 					]
 						.map(([t, rows, w]) => `<h3>${t}</h3>${topTbl(rows, w)}`)
 						.join("") +
-					'<p class="gl-note">Рекорды - за эту неделю, с понедельника 05:00.</p>';
+					'<p class="gl-note">Рекорды - за эту неделю, с понедельника ' +
+					weekAt() +
+					".</p>";
 			else
 				body = `<p class="gl-note">С галереи виден весь зал. Партии игроков этой таверны:</p>${galLiveHtml()}`;
 			b.innerHTML = `<h2>Галерея</h2>${tabs(
@@ -5497,7 +5507,7 @@
 					return ODDPLAY[mode](b.querySelector("#tv-oddBox"), o, back);
 				}
 				b.innerHTML = `<h2>Погреб</h2><p>Трактирщик кричит сверху: «Эй, есть пара дел, пока не ушёл!»</p>
-        <div class="lim"><span>Поручений сегодня: ${O.done} / ${O.max}</span><span>Новые - в ${nextAt}</span></div>
+        <div class="lim"><span>Поручений сегодня: ${O.done} / ${O.max}</span><span>Новые - в ${nextAt()}</span></div>
         ${O.list.map((o) => `<div class="card${o.done ? " ok" : ""}"><div class="grow"><b>${esc(o.t)}</b><small>${esc(o.d)}</small></div><span class="price">${coins(o.pay)}</span><button class="gl-btn" data-t="${esc(o.id)}" ${o.done || !ODD[o.id] ? "disabled" : ""}>${o.done ? "Сделано" : "Взяться"}</button></div>`).join("")}
         <div class="card"><div class="grow"><span class="tag">Тайна</span><b>Старая дверь за бочками</b><small>На цепи, с ржавым замком. Говорят, за ней что-то есть. Откроется позже.</small></div><button class="gl-mini" disabled>Заперто</button></div>
         <p class="gl-note">Длинные смены «Помощника трактирщика» - на кухне (рядом, слева).</p>`;

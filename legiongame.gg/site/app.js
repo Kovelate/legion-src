@@ -7578,6 +7578,23 @@
 		jNext = null,
 		jCap = 300,
 		jMoreP = null;
+
+	const JPAGE = 50;
+	let jq = "",
+		jqDraft = "",
+		jqWas = null;
+	const jUrl = (want, before) =>
+		"/api/journal?tab=" +
+		encodeURIComponent(want) +
+		"&n=" +
+		JPAGE +
+		(jq ? "&q=" + encodeURIComponent(jq) : "") +
+		(before ? "&before=" + encodeURIComponent(before) : "");
+	const jqHit = (e) =>
+		!jq ||
+		String((e && e.t) || "")
+			.toLowerCase()
+			.includes(jq.toLowerCase());
 	try {
 		const v = localStorage.getItem("lgJf");
 		if (v && JTK[v] !== undefined) jf = v;
@@ -7608,16 +7625,23 @@
 		if (!JL) el.innerHTML = '<p class="empty">Открываю журнал…</p>';
 		const want = jf,
 			seq = ++jSeq;
-		const r = await api("/api/journal?tab=" + encodeURIComponent(want));
+		const r = await api(jUrl(want));
 		if (seq !== jSeq || !$("#jrFull")) return;
 		if (!r || !r.ok) {
 			if (!JL)
 				el.innerHTML =
 					'<div class="panel"><p class="empty">Журнал пока не загрузился. Обнови страницу чуть позже.</p></div>';
+			else if (jqWas !== null) {
+				jq = jqWas;
+				jqWas = null;
+				renderLog();
+				toast((r && r.error) || "Поиск не удался - попробуй ещё раз", true);
+			}
 			return;
 		}
+		jqWas = null;
 		if (r.items) JITEMS = r.items;
-		const k = want + JSON.stringify(r.list || []);
+		const k = want + "|" + jq + JSON.stringify(r.list || []);
 		if (JL && k === jAt) return;
 		jAt = k;
 		JL = r.list || [];
@@ -7630,12 +7654,7 @@
 		if (!jNext || jMoreP) return;
 		const want = jf,
 			seq = jSeq;
-		jMoreP = api(
-			"/api/journal?tab=" +
-				encodeURIComponent(want) +
-				"&before=" +
-				encodeURIComponent(jNext),
-		);
+		jMoreP = api(jUrl(want, jNext));
 		let r = null;
 		try {
 			r = await jMoreP;
@@ -7664,7 +7683,7 @@
 	function loadMini(force) {
 		if (jaP || !ME || !ME.user || (!force && Date.now() - jaFail < 60000))
 			return;
-		jaP = api("/api/journal?tab=all")
+		jaP = api("/api/journal?tab=all&n=" + JPAGE)
 			.then(
 				(r) => {
 					if (r && r.ok) {
@@ -7744,7 +7763,7 @@
 			ids = new Set(JL.map((e) => e.id));
 		let n = 0;
 		for (const e of list) {
-			if (ks && !ks.includes(e.k)) continue;
+			if ((ks && !ks.includes(e.k)) || !jqHit(e)) continue;
 			if (ids.has(e.id)) {
 				const i = JL.findIndex((x) => x.id === e.id);
 				JL[i] = e;
@@ -7930,20 +7949,40 @@
 				`<li class="jr-e" data-k="${esc(e.k)}"><time datetime="${new Date(e.at).toISOString()}">${hm(e.at)}</time><span class="jr-k">${esc(JKN[e.k] || "Прочее")}</span><p class="jr-t">${esc(itemText(e.t))}</p>` +
 				`<span class="jr-m">${lbl ? `<span class="jr-r ${e.r}">${esc(lbl)}</span>` : ""}${coinsTxt(+e.c || 0)}${+e.x ? `<span class="jr-x">+${+e.x} опыта</span>` : ""}${jClaimBtn(e)}</span></li>`;
 		}
-		const EMPTY = {
+		const EMPTY0 = {
 			all: "Журнал пуст. Сюда попадут бои, находки, новые вещи, покупки, выигрыши и проигрыши, награды монетами, новые уровни, смерть и воскрешение героя.",
 			fight: "Боёв пока не было.",
 			shop: "Покупок пока не было.",
 			find: "Находок пока не было.",
 			coins: "Монет пока не было.",
 		};
+		const EMPTY = jq
+			? {
+					all: `По запросу «${esc(jq)}» ничего не нашлось. Поиск идёт по записям этого сезона.`,
+				}
+			: EMPTY0;
+
+		const qa = document.activeElement,
+			qFocus = !!(
+				qa &&
+				qa.classList &&
+				qa.classList.contains("jr-qi") &&
+				el.contains(qa)
+			);
+		const qSel = qFocus ? [qa.selectionStart, qa.selectionEnd] : null;
+		const cnt = all.length
+			? jq
+				? `найдено ${all.length}${jNext ? "+" : ""}`
+				: `${all.length} ${plural(all.length, "запись", "записи", "записей")}${jNext ? " · последние" : ""}`
+			: "";
 		el.innerHTML = `<div class="jr panel">
-      <div class="bag-h"><h2 class="h2">Журнал</h2><span class="muted">${all.length ? `${all.length} ${plural(all.length, "запись", "записи", "записей")}${jNext ? " · последние" : ""}` : ""}</span></div>
+      <div class="bag-h"><h2 class="h2">Журнал</h2><span class="muted">${cnt}</span></div>
+      <form class="jr-q" role="search" aria-label="Поиск по журналу"><input class="jr-qi" type="search" name="q" maxlength="40" autocomplete="off" placeholder="Поиск по журналу: вещь, враг, событие" aria-label="Что найти в журнале" value="${esc(jqDraft)}"><button type="submit" class="btn ghost jr-qgo">Найти</button>${jq ? '<button type="button" class="btn ghost jr-qx" data-jqx>Сбросить</button>' : ""}</form>
       <div class="filters jr-tabs" role="group" aria-label="Что показать">${JT.map(([k, l]) => `<button type="button" data-jf="${k}" aria-pressed="${jf === k}">${l}</button>`).join("")}</div>
       ${sum ? `<div class="jr-sum">${sum}</div>` : ""}
       ${list.length ? `<ol class="jr-list">${rows}</ol>` : `<p class="empty">${EMPTY[jf] || EMPTY.all}</p>`}
-      ${jNext && list.length ? '<button type="button" class="btn ghost jr-page" data-jmore>Показать ещё</button>' : ""}
-      <p class="foot">Журнал обновляется сам, через несколько секунд после события.</p>
+      ${jNext && list.length ? `<button type="button" class="btn ghost jr-page" data-jmore>Загрузить ещё ${JPAGE}</button>` : ""}
+      <p class="foot">Журнал обновляется сам, через несколько секунд после события. Хранится текущий сезон.</p>
     </div>`;
 		const mb = el.querySelector("[data-jmore]");
 		if (mb)
@@ -7970,6 +8009,52 @@
 					loadLog();
 				}),
 		);
+		const qf = el.querySelector(".jr-q"),
+			qi = qf && qf.querySelector(".jr-qi");
+		const jqSet = (v) => {
+			v = String(v || "")
+				.replace(/\s+/g, " ")
+				.trim()
+				.slice(0, 40);
+			jqDraft = v;
+			if (v === jq) return;
+			if (jqWas === null) jqWas = jq;
+			jq = v;
+			jAt = "";
+			jNext = null;
+			jCap = 300;
+			const go = el.querySelector(".jr-qgo");
+			if (go) {
+				go.disabled = true;
+				go.textContent = "Ищу…";
+			}
+			loadLog();
+		};
+		if (qi) {
+			qi.oninput = () => {
+				jqDraft = qi.value;
+			};
+			qi.onkeydown = (e) => {
+				if (e.key === "Escape" && qi.value) {
+					e.stopPropagation();
+					qi.value = "";
+					jqSet("");
+				}
+			};
+			if (qFocus) {
+				qi.focus();
+				try {
+					qi.setSelectionRange(qSel[0], qSel[1]);
+				} catch (x) {}
+			}
+		}
+		if (qf)
+			qf.onsubmit = (e) => {
+				e.preventDefault();
+				jqSet(qi ? qi.value : "");
+			};
+		const qx = el.querySelector("[data-jqx]");
+		if (qx) qx.onclick = () => jqSet("");
 	}
 
 	const loadJs = (src, n = 0) =>
@@ -8956,14 +9041,24 @@
 			enchant_sphere: "Сфера сохранения",
 			enchant_star: "Счастливая звезда",
 		};
-		const DAY_SHIFT = 2 * 3600e3,
+
+		const MSK = 3 * 3600e3,
 			DAY_MS = 864e5;
-		const resetLeft = () => {
-			const t = Date.now();
-			return (
-				(Math.floor((t - DAY_SHIFT) / DAY_MS) + 1) * DAY_MS + DAY_SHIFT - t
-			);
+		let resetAsk = 0;
+		const resetAt = () => {
+			const t = Date.now(),
+				at = data && data.ok ? +data.reset || 0 : 0;
+			if (at > t) return at;
+			if (data && data.ok && t - resetAsk > 600e3) {
+				resetAsk = t;
+				apiGet().then((r) => {
+					if (r && r.ok) take(r);
+				});
+			}
+			return (Math.floor((t + MSK) / DAY_MS) + 1) * DAY_MS - MSK;
 		};
+		const resetLeft = () => resetAt() - Date.now();
+		const hhmm = (at) => new Date(at + MSK).toISOString().slice(11, 16);
 		const leftTiny = (ms) => {
 			const m = Math.max(1, Math.round(ms / 60e3));
 			return m >= 60 ? `${Math.floor(m / 60)} ч` : `${m} мин`;
@@ -9049,7 +9144,7 @@
 				`<div class="dlb-in${ready ? " has-ready" : ""}"><button type="button" class="dlb-t" data-dl-tg aria-expanded="${open}" aria-controls="dlCard"><span class="dlb-ic">${ICO.list}</span><b class="dlb-l">Задания дня</b>` +
 				`<span class="dlb-n${v.of && v.n >= v.of ? " is-full" : ""}" aria-label="шагов ${Math.min(v.n, v.of)} из ${v.of}">${Math.min(v.n, v.of)}/${v.of}</span></button>` +
 				`<div class="dlb-sc" data-dl-tg>${scaleHtml(v, true)}</div>` +
-				`<span class="dlb-tm" title="Новые задания - в 05:00 по Москве"><span class="dlb-tl">сброс через </span><b class="dlb-tf">${leftShort(resetLeft())}</b><b class="dlb-ts">${leftTiny(resetLeft())}</b></span>` +
+				`<span class="dlb-tm" title="Новые задания - в ${hhmm(resetAt())} по Москве"><span class="dlb-tl">сброс через </span><b class="dlb-tf">${leftShort(resetLeft())}</b><b class="dlb-ts">${leftTiny(resetLeft())}</b></span>` +
 				`<button type="button" class="dlb-x${open ? " is-open" : ""}" data-dl-tg aria-label="${open ? "Свернуть" : "Раскрыть"} задания дня">${ICO.down}</button></div>`
 			);
 		}

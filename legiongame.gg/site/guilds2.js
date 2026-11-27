@@ -3352,15 +3352,13 @@
 		if (d.war) warClick(t, d);
 	}
 
+	const MSK_MS = 3 * 3600e3;
 	const nextDay = () => {
-		const MSK = 3 * 3600e3,
-			t = Date.now() + MSK,
-			d = new Date(t);
-		let at =
-			Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5) - MSK;
-		if (at <= Date.now()) at += 864e5;
-		return at;
+		const t = Date.now(),
+			r = W && W.dl ? +W.dl.reset || 0 : 0;
+		return r > t ? r : (Math.floor((t + MSK_MS) / 864e5) + 1) * 864e5 - MSK_MS;
 	};
+	const hhmmMsk = (at) => new Date(at + MSK_MS).toISOString().slice(11, 16);
 
 	const seenKey = () => {
 		let ch = "";
@@ -3440,7 +3438,7 @@
 				: "";
 		const right = !D
 			? `<p class="gl-cs">${window.LGDailies ? "Загружаю задания…" : "Задания пока недоступны."}</p>`
-			: `<p class="gl-cs">Обновятся ${esc(left(nextDay()))} (в 05:00 по Москве).</p>` +
+			: `<p class="gl-cs">Обновятся ${esc(left(nextDay()))} (в ${hhmmMsk(nextDay())} по Москве).</p>` +
 				list("Вместе с гильдией", q && q.guild, true) +
 				list("Мои задания гильдии", q && q.mine, false) +
 				(q ? "" : '<p class="gl-cs">Задания гильдии откроются позже.</p>');

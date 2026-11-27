@@ -511,7 +511,7 @@
 			`<form class="gr-plan" aria-label="${P ? "Перенести вылазку" : "Назначить вылазку"}"><h3>${P ? "Перенести вылазку" : "Назначить вылазку"}</h3>` +
 			`<div class="gr-plan-row"><label>День <input type="date" name="d" required min="${min}" max="${max}" value="${dateVal(t0)}"></label>` +
 			`<label>Время (МСК) <input type="time" name="t" required step="300" value="${timeVal(t0)}"></label></div>` +
-			`<p class="gl-note gl-sm">Место - «${esc(d.place)}» (природа вашего города). Не раньше чем через ${R.leadMin} мин и не дальше чем на ${R.ahead} дн., не чаще ${R.perWeek === 1 ? "1 раза" : R.perWeek + " раз"} в неделю (неделя - с понедельника 05:00 МСК; не состоявшаяся не в счёт), не ближе ${R.clash} мин к рейду гильдии и мини-сражению. В назначенное время - ${R.gather} мин на сбор, нужно хотя бы ${R.min} ${plural(R.min, "участник", "участника", "участников")}; отметившимся «Буду» - напоминание за ${R.remind} мин.</p>` +
+			`<p class="gl-note gl-sm">Место - «${esc(d.place)}» (природа вашего города). Не раньше чем через ${R.leadMin} мин и не дальше чем на ${R.ahead} дн., не чаще ${R.perWeek === 1 ? "1 раза" : R.perWeek + " раз"} в неделю (неделя - с понедельника 00:00 МСК; не состоявшаяся не в счёт), не ближе ${R.clash} мин к рейду гильдии и мини-сражению. В назначенное время - ${R.gather} мин на сбор, нужно хотя бы ${R.min} ${plural(R.min, "участник", "участника", "участников")}; отметившимся «Буду» - напоминание за ${R.remind} мин.</p>` +
 			`<div class="gl-btns"><button type="submit" class="gl-btn go">${P ? "Перенести" : "Назначить"}</button>${P ? '<button type="button" class="gl-btn ghost" data-gr="noform">Не переносить</button>' : ""}</div></form>`
 		);
 	}

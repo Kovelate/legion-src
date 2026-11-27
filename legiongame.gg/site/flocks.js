@@ -1,11 +1,22 @@
 window.LGFlocks = (() => {
 	var module = { exports: {} };
 	var DAY_SHIFT = 2 * 3600e3;
-	var dayOf = (ts) => new Date(+ts - DAY_SHIFT).toISOString().slice(0, 10);
+	var oldDayOf = (ts) => new Date(+ts - DAY_SHIFT).toISOString().slice(0, 10);
+	var oldNextDay = (ts) =>
+		Date.parse(oldDayOf(ts) + "T00:00:00Z") + 864e5 + DAY_SHIFT;
+	var MK = () => window.LGMsk;
 
 	var require = () => ({
-		dayOf: dayOf,
-		nextDay: (ts) => Date.parse(dayOf(ts) + "T00:00:00Z") + 864e5 + DAY_SHIFT,
+		dayOf: (ts) => {
+			var K = MK();
+			return K ? K.switchAt(+ts, oldDayOf, K.mskDayKey) : oldDayOf(ts);
+		},
+		nextDay: (ts) => {
+			var K = MK();
+			return K
+				? K.switchNext(+ts, oldNextDay, K.mskNextMidnight)
+				: oldNextDay(ts);
+		},
 	});
 	("use strict");
 
